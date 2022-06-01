@@ -1,24 +1,16 @@
-use std::fmt;
 use std::iter::Peekable;
 use std::iter::Iterator;
 
-#[derive(Debug, Clone)]
-struct LexerError;
-
-impl fmt::Display for LexerError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "lexer error (tbd)")
-    }
-}
 
 #[derive(Debug, PartialEq)]
 enum TokenKind {
-    Fn,
+    Let, Fn,
     Ident,
     OpenParen, CloseParen,
     OpenBrac, CloseBrac,
     SemiColon,
     Number,
+    Equals,
 }
 
 #[derive(Debug)]
@@ -80,6 +72,12 @@ impl<T: Iterator<Item=char>> Iterator for Lexer<T> {
                         kind: TokenKind::SemiColon,
                     })
                 },
+                '=' => {
+                    return Some(Token {
+                        lexeme: "=".to_string(),
+                        kind: TokenKind::Equals,
+                    })
+                },
                 _ => {
                     lexeme.push(char_);
 
@@ -102,6 +100,10 @@ impl<T: Iterator<Item=char>> Iterator for Lexer<T> {
                         let lexeme = String::from_iter(lexeme);
 
                         return match lexeme.as_ref() {
+                            "let" => Some(Token {
+                                kind: TokenKind::Let,
+                                lexeme: lexeme,
+                            }),
                             "fn" => Some(Token {
                                 kind: TokenKind::Fn,
                                 lexeme: lexeme,
@@ -127,6 +129,67 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_lexing_tokens() {
+        let source: String = String::from("let fn () {} a; y=b");
+        let expected_tokens: Vec<Token> = vec![
+            Token{
+                kind: TokenKind::Let,
+                lexeme: String::from("let"),
+            },
+            Token {
+                kind: TokenKind::Fn,
+                lexeme: String::from("fn"),
+            },
+            Token {
+                kind: TokenKind::OpenParen,
+                lexeme: String::from("("),
+            },
+            Token {
+                kind: TokenKind::CloseParen,
+                lexeme: String::from(")"),
+            },
+            Token {
+                kind: TokenKind::OpenBrac,
+                lexeme: String::from("{"),
+            },
+            Token {
+                kind: TokenKind::CloseBrac,
+                lexeme: String::from("}"),
+            },
+            Token {
+                kind: TokenKind::Ident,
+                lexeme: String::from("a"),
+            },
+            Token {
+                kind: TokenKind::SemiColon,
+                lexeme: String::from(";"),
+            },
+            Token {
+                kind: TokenKind::Ident,
+                lexeme: String::from("y"),
+            },
+            Token {
+                kind: TokenKind::Equals,
+                lexeme: String::from("="),
+            },
+            Token {
+                kind: TokenKind::Ident,
+                lexeme: String::from("b"),
+            },
+        ];
+
+        let mut output_iter = Lexer::from_source_code(source.chars().peekable());
+        let tokens: Vec<Token> = output_iter.by_ref().collect::<Vec<Token>>();
+
+        assert_eq!(tokens.len(), expected_tokens.len());
+
+        for (got, exp) in tokens.iter().zip(expected_tokens.iter()) {
+            assert_eq!(got.kind, exp.kind);
+            assert_eq!(got.lexeme, exp.lexeme);
+        }
+    }
 
     #[test]
     fn test_read_simple_main_function() {
