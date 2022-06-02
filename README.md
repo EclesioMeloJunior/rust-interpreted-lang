@@ -51,6 +51,8 @@ fn main() {
 #### BNF
 
 ```
+statement       =>  expression ";"
+
 expression      =>  equality
 equality        =>  comparision ( ("!=" | "==") comparision )*
 comparision     =>  term ( (">" | "<" | ">=" | "<=") term )*

@@ -16,9 +16,9 @@ fn main() {
     let contents: Vec<char> = contents.into_iter().map(|c| c as char).collect();
 
     let tokens = Lexer::from_source_code(contents.into_iter().peekable());
-    let parser = Parser::new(tokens.peekable());
+    let mut parser = Parser::new(tokens.peekable());
 
-    for token in tokens {
-        println!("{:?}", token);
-    }
+    let expr = parser.parse_statement();
+
+    println!("{:?}", expr)
 }
