@@ -1,14 +1,19 @@
-use std::iter::Peekable;
 use std::iter::Iterator;
-
+use std::iter::Peekable;
 
 #[derive(Debug, PartialEq)]
 pub enum TokenKind {
     Plus,
-    Let, Fn,
+    Minus,
+    Slash,
+    Star,
+    Let,
+    Fn,
     Ident,
-    OpenParen, CloseParen,
-    OpenBrac, CloseBrac,
+    OpenParen,
+    CloseParen,
+    OpenBrac,
+    CloseBrac,
     SemiColon,
     Number,
     Equals,
@@ -21,19 +26,17 @@ pub struct Token {
 }
 
 #[derive(Debug, Clone)]
-pub struct Lexer<T: Iterator<Item=char>> {
+pub struct Lexer<T: Iterator<Item = char>> {
     source: Peekable<T>,
 }
 
-impl<T: Iterator<Item=char>> Lexer<T> {
+impl<T: Iterator<Item = char>> Lexer<T> {
     pub fn from_source_code(source: Peekable<T>) -> Self {
-        return Lexer {
-            source: source
-        }
+        return Lexer { source: source };
     }
 }
 
-impl<T: Iterator<Item=char>> Iterator for Lexer<T> {
+impl<T: Iterator<Item = char>> Iterator for Lexer<T> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Token> {
@@ -41,49 +44,47 @@ impl<T: Iterator<Item=char>> Iterator for Lexer<T> {
 
         let mut lexeme: Vec<char> = vec![];
         while let Some(char_) = self.source.next_if(|x| !x.is_whitespace()) {
-            match char_ {
-                '{' =>  {
-                    return Some(Token {
-                        lexeme: "{".to_string(),
-                        kind: TokenKind::OpenBrac,
-                    })
-                },
-                '}' =>  {
-                    return Some(Token {
-                        lexeme: "}".to_string(),
-                        kind: TokenKind::CloseBrac,
-                    })
-                },
-                '(' =>  {
-                    return Some(Token {
-                        lexeme: "(".to_string(),
-                        kind: TokenKind::OpenParen,
-                    })
-                },
-                ')' =>  {
-                    return Some(Token {
-                        lexeme: ")".to_string(),
-                        kind: TokenKind::CloseParen,
-                    })
-                },
-                ';' =>  {
-                    return Some(Token {
-                        lexeme: ";".to_string(),
-                        kind: TokenKind::SemiColon,
-                    })
-                },
-                '=' => {
-                    return Some(Token {
-                        lexeme: "=".to_string(),
-                        kind: TokenKind::Equals,
-                    })
-                },
-                '+' => {
-                    return Some(Token {
-                        lexeme: "+".to_string(),
-                        kind: TokenKind::Plus,
-                    })
-                }
+            return match char_ {
+                '{' => Some(Token {
+                    lexeme: "{".to_string(),
+                    kind: TokenKind::OpenBrac,
+                }),
+                '}' => Some(Token {
+                    lexeme: "}".to_string(),
+                    kind: TokenKind::CloseBrac,
+                }),
+                '(' => Some(Token {
+                    lexeme: "(".to_string(),
+                    kind: TokenKind::OpenParen,
+                }),
+                ')' => Some(Token {
+                    lexeme: ")".to_string(),
+                    kind: TokenKind::CloseParen,
+                }),
+                ';' => Some(Token {
+                    lexeme: ";".to_string(),
+                    kind: TokenKind::SemiColon,
+                }),
+                '=' => Some(Token {
+                    lexeme: "=".to_string(),
+                    kind: TokenKind::Equals,
+                }),
+                '+' => Some(Token {
+                    lexeme: "+".to_string(),
+                    kind: TokenKind::Plus,
+                }),
+                '-' => Some(Token {
+                    lexeme: "-".to_string(),
+                    kind: TokenKind::Minus,
+                }),
+                '*' => Some(Token {
+                    lexeme: "*".to_string(),
+                    kind: TokenKind::Star,
+                }),
+                '/' => Some(Token {
+                    lexeme: "/".to_string(),
+                    kind: TokenKind::Slash,
+                }),
                 _ => {
                     lexeme.push(char_);
 
@@ -95,11 +96,12 @@ impl<T: Iterator<Item=char>> Iterator for Lexer<T> {
                         return Some(Token {
                             kind: TokenKind::Number,
                             lexeme: String::from_iter(lexeme),
-                        })
+                        });
                     }
-                    
                     if char_.is_ascii_alphabetic() {
-                        while let Some(alphabetic) = self.source.next_if(|x| x.is_ascii_alphabetic()) {
+                        while let Some(alphabetic) =
+                            self.source.next_if(|x| x.is_ascii_alphabetic())
+                        {
                             lexeme.push(alphabetic);
                         }
 
@@ -117,14 +119,16 @@ impl<T: Iterator<Item=char>> Iterator for Lexer<T> {
                             _ => Some(Token {
                                 kind: TokenKind::Ident,
                                 lexeme: lexeme,
-                            })
-                        }
+                            }),
+                        };
                     }
+
+                    return None;
                 }
-            }
+            };
         }
 
-        return None
+        return None;
     }
 }
 
@@ -136,7 +140,7 @@ mod tests {
     fn test_lexing_tokens() {
         let source: String = String::from("let fn() {} a; y=b");
         let expected_tokens: Vec<Token> = vec![
-            Token{
+            Token {
                 kind: TokenKind::Let,
                 lexeme: String::from("let"),
             },
@@ -220,12 +224,10 @@ mod tests {
             Token {
                 kind: TokenKind::CloseBrac,
                 lexeme: String::from("}"),
-            }
+            },
         ];
 
-
         let mut tokens_iter = Lexer::from_source_code(source.chars().peekable());
-        
         let tokens_vec = tokens_iter.by_ref().collect::<Vec<Token>>();
         assert_eq!(tokens_vec.len(), expected_tokens.len());
 
