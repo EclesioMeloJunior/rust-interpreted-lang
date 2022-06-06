@@ -1,10 +1,10 @@
 mod lexer;
 mod parser;
 
-use std::fs;
-use std::env;
 use lexer::Lexer;
 use parser::Parser;
+use std::env;
+use std::fs;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -20,5 +20,8 @@ fn main() {
 
     let expr = parser.parse_statement();
 
-    println!("{:?}", expr)
+    match expr {
+        Ok(expr_tree) => println!("{}", expr_tree),
+        Err(err) => println!("{}", err),
+    }
 }
