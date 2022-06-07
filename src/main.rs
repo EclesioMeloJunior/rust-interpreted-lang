@@ -18,10 +18,8 @@ fn main() {
     let tokens = Lexer::from_source_code(contents.into_iter().peekable());
     let mut parser = Parser::new(tokens.peekable());
 
-    let expr = parser.parse_statement();
-
-    match expr {
-        Ok(expr_tree) => println!("{}", expr_tree),
+    match parser.parse_statement() {
+        Ok(_) => println!("{}", parser.operands[0]),
         Err(err) => println!("{}", err),
     }
 }

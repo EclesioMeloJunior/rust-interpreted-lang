@@ -20,12 +20,29 @@ pub enum UnaryOperator {
     Min,
 }
 
+impl UnaryOperator {
+    fn precedence(&self) -> u8 {
+        match self {
+            UnaryOperator::Neg | UnaryOperator::Min => 3,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum BinaryOperator {
     Sub,
     Sum,
     Mul,
     Div,
+}
+
+impl BinaryOperator {
+    fn precedence(&self) -> u8 {
+        match self {
+            BinaryOperator::Sum | BinaryOperator::Sub => 1,
+            BinaryOperator::Mul | BinaryOperator::Div => 2,
+        }
+    }
 }
 
 impl std::fmt::Display for BinaryOperator {
@@ -51,9 +68,18 @@ pub enum Expr {
     },
     BinaryExpr {
         op: BinaryOperator,
-        lhs: Box<Expr>,
-        rhs: Box<Expr>,
+        lhs: Option<Box<Expr>>,
+        rhs: Option<Box<Expr>>,
     },
+}
+
+impl Expr {
+    fn precedence(&self) -> u8 {
+        match self {
+            Expr::BinaryExpr { op, .. } => op.precedence(),
+            _ => 0,
+        }
+    }
 }
 
 impl std::fmt::Display for Expr {
@@ -62,14 +88,19 @@ impl std::fmt::Display for Expr {
             Expr::Int(i) => write!(f, "{}", i),
             Expr::Iden(value) => write!(f, "{}", value),
             Expr::Grouping(expr) => write!(f, "({})", expr),
-            Expr::BinaryExpr { op, lhs, rhs } => return write!(f, "{} {} {}", lhs, op, rhs),
+            Expr::BinaryExpr { op, lhs, rhs } => {
+                return write!(
+                    f,
+                    "({} {} {})",
+                    lhs.as_ref().unwrap(),
+                    op,
+                    rhs.as_ref().unwrap()
+                )
+            }
             _ => Err(std::fmt::Error),
         }
     }
 }
-
-const LOWEST_PRECEDENCE: u8 = 0;
-const TERM_PRECEDENCE: u8 = 1;
 
 fn is_binary_operator(token: &Token) -> bool {
     match token.kind {
@@ -82,7 +113,7 @@ pub struct Parser<T: Iterator<Item = Token>> {
     tokens: Peekable<T>,
 
     operators: Vec<Expr>,
-    operands: Vec<Expr>,
+    pub operands: Vec<Expr>,
 }
 
 impl<T: Iterator<Item = Token>> Parser<T> {
@@ -96,13 +127,16 @@ impl<T: Iterator<Item = Token>> Parser<T> {
 
         match current_token.kind {
             TokenKind::Ident => {
+                println!("pushing operand {:?}", &current_token.lexeme);
                 self.operands.push(Expr::Iden(current_token.lexeme));
             }
             TokenKind::Number => {
+                println!("pushing operand {:?}", &current_token.lexeme);
                 let i32_number = current_token.lexeme.parse::<i32>().unwrap();
                 self.operands.push(Expr::Int(i32_number));
             }
             TokenKind::OpenParen => {
+                self.operators.push(Expr::Sentinel);
                 let expression = self.parse_expression_statement().unwrap();
                 let close_paren = self.tokens.next();
 
@@ -131,52 +165,97 @@ impl<T: Iterator<Item = Token>> Parser<T> {
                 )))
             }
         };
-        Ok()
+        Ok(())
     }
 
-    pub fn parse_expression_statement(&mut self) -> Result<Expr, ParserError> {
-        let mut lhs = self.parse_expression().unwrap();
+    pub fn pop_operators(&mut self) {
+        if let Some(on_top_expression) = self.operators.pop() {
+            match on_top_expression {
+                Expr::BinaryExpr { op, .. } => {
+                    let rhs = self.operands.pop().unwrap();
+                    let lhs = self.operands.pop().unwrap();
 
-        while let Some(token) = self.tokens.next_if(|token| is_binary_operator(token)) {
-            let rhs = self.parse_expression();
-            if rhs.is_err() {
-                return rhs;
+                    self.operands.push(Expr::BinaryExpr {
+                        op: op,
+                        lhs: Some(Box::new(lhs)),
+                        rhs: Some(Box::new(rhs)),
+                    })
+                }
+                _ => {}
+            }
+        }
+    }
+
+    pub fn push_operator(&mut self, expression_to_add: Expr) {
+        let mut operator_on_top = self.operators.last();
+        while operator_on_top.is_some() {
+            let current_operator = operator_on_top.unwrap();
+
+            if current_operator.precedence() > expression_to_add.precedence() {
+                self.pop_operators();
+                operator_on_top = self.operators.last();
+                continue;
             }
 
-            lhs = match token.kind {
-                TokenKind::Slash => Expr::BinaryExpr {
+            break;
+        }
+
+        self.operators.push(expression_to_add)
+    }
+
+    pub fn parse_expression_statement(&mut self) -> Result<(), ParserError> {
+        self.parse_expression().unwrap();
+
+        while let Some(token) = self.tokens.next_if(|token| is_binary_operator(token)) {
+            match token.kind {
+                TokenKind::Slash => self.push_operator(Expr::BinaryExpr {
                     op: BinaryOperator::Div,
-                    rhs: Box::new(rhs.unwrap()),
-                    lhs: Box::new(lhs),
-                },
-                TokenKind::Star => Expr::BinaryExpr {
+                    rhs: None,
+                    lhs: None,
+                }),
+                TokenKind::Star => self.push_operator(Expr::BinaryExpr {
                     op: BinaryOperator::Mul,
-                    rhs: Box::new(rhs.unwrap()),
-                    lhs: Box::new(lhs),
-                },
-                TokenKind::Minus => Expr::BinaryExpr {
+                    rhs: None,
+                    lhs: None,
+                }),
+                TokenKind::Minus => self.push_operator(Expr::BinaryExpr {
                     op: BinaryOperator::Sub,
-                    rhs: Box::new(rhs.unwrap()),
-                    lhs: Box::new(lhs),
-                },
-                TokenKind::Plus => Expr::BinaryExpr {
+                    rhs: None,
+                    lhs: None,
+                }),
+                TokenKind::Plus => self.push_operator(Expr::BinaryExpr {
                     op: BinaryOperator::Sum,
-                    rhs: Box::new(rhs.unwrap()),
-                    lhs: Box::new(lhs),
-                },
+                    rhs: None,
+                    lhs: None,
+                }),
                 _ => {
                     return Err(ParserError(format!(
                         "expected any of +, -, *, / got: {}",
                         token.lexeme
-                    )))
+                    )));
                 }
+            }
+
+            match self.parse_expression() {
+                Err(err) => return Err(err),
+                _ => {}
             }
         }
 
-        Ok(lhs)
+        loop {
+            let on_top_operator = self.operators.last();
+            match on_top_operator {
+                Some(operator) => match operator {
+                    Expr::Sentinel => break,
+                    _ => self.pop_operators(),
+                },
+                None => break,
+            }
+        }
+        Ok(())
     }
 
-    pub fn parse_statement(&mut self) -> Result<Expr, ParserError> {
+    pub fn parse_statement(&mut self) -> Result<(), ParserError> {
         self.parse_expression_statement()
     }
 
@@ -203,12 +282,12 @@ mod test {
 
         let expected_expression = Expr::BinaryExpr {
             op: BinaryOperator::Sum,
-            lhs: Box::new(Expr::BinaryExpr {
+            lhs: Some(Box::new(Expr::BinaryExpr {
                 op: BinaryOperator::Sum,
-                lhs: Box::new(Expr::Int(10)),
-                rhs: Box::new(Expr::Int(20)),
-            }),
-            rhs: Box::new(Expr::Int(30)),
+                lhs: Some(Box::new(Expr::Int(10))),
+                rhs: Some(Box::new(Expr::Int(20))),
+            })),
+            rhs: Some(Box::new(Expr::Int(30))),
         };
 
         let parsed_expression = parser.parse_statement();
