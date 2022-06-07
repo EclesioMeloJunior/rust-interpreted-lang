@@ -1,5 +1,6 @@
 mod lexer;
 mod parser;
+mod vm;
 
 use lexer::Lexer;
 use parser::Parser;
@@ -19,7 +20,9 @@ fn main() {
     let mut parser = Parser::new(tokens.peekable());
 
     match parser.parse_statement() {
-        Ok(_) => println!("{}", parser.operands[0]),
+        Ok(_) => {
+            println!("{}", parser.operands[0])
+        }
         Err(err) => println!("{}", err),
     }
 }

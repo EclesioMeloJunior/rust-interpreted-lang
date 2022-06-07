@@ -127,23 +127,21 @@ impl<T: Iterator<Item = Token>> Parser<T> {
 
         match current_token.kind {
             TokenKind::Ident => {
-                println!("pushing operand {:?}", &current_token.lexeme);
                 self.operands.push(Expr::Iden(current_token.lexeme));
             }
             TokenKind::Number => {
-                println!("pushing operand {:?}", &current_token.lexeme);
                 let i32_number = current_token.lexeme.parse::<i32>().unwrap();
                 self.operands.push(Expr::Int(i32_number));
             }
             TokenKind::OpenParen => {
                 self.operators.push(Expr::Sentinel);
-                let expression = self.parse_expression_statement().unwrap();
+                self.parse_expression_statement().unwrap();
                 let close_paren = self.tokens.next();
 
                 match close_paren {
                     Some(token) => {
                         if token.kind == TokenKind::CloseParen {
-                            self.operators.push(Expr::Sentinel);
+                            self.operators.pop();
                         } else {
                             return Err(ParserError(format!(
                                 "expected close parentheses, got {}",
@@ -236,10 +234,7 @@ impl<T: Iterator<Item = Token>> Parser<T> {
                 }
             }
 
-            match self.parse_expression() {
-                Err(err) => return Err(err),
-                _ => {}
-            }
+            self.parse_expression().unwrap()
         }
 
         loop {
