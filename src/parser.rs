@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::lexer::{Token, TokenKind};
 use std::iter::Peekable;
 
@@ -40,7 +42,8 @@ impl BinaryOperator {
     fn precedence(&self) -> u8 {
         match self {
             BinaryOperator::Sum | BinaryOperator::Sub => 1,
-            BinaryOperator::Mul | BinaryOperator::Div => 2,
+            BinaryOperator::Mul => 2,
+            BinaryOperator::Div => 3,
         }
     }
 }
@@ -56,10 +59,10 @@ impl std::fmt::Display for BinaryOperator {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 pub enum Expr {
     Sentinel,
-    Int(i32),
+    Int32(String),
     Iden(String),
     Grouping(Box<Expr>),
     UnaryExpr {
@@ -85,7 +88,7 @@ impl Expr {
 impl std::fmt::Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Expr::Int(i) => write!(f, "{}", i),
+            Expr::Int32(i) => write!(f, "{}", i),
             Expr::Iden(value) => write!(f, "{}", value),
             Expr::Grouping(expr) => write!(f, "({})", expr),
             Expr::BinaryExpr { op, lhs, rhs } => {
@@ -130,8 +133,7 @@ impl<T: Iterator<Item = Token>> Parser<T> {
                 self.operands.push(Expr::Iden(current_token.lexeme));
             }
             TokenKind::Number => {
-                let i32_number = current_token.lexeme.parse::<i32>().unwrap();
-                self.operands.push(Expr::Int(i32_number));
+                self.operands.push(Expr::Int32(current_token.lexeme));
             }
             TokenKind::OpenParen => {
                 self.operators.push(Expr::Sentinel);
@@ -279,10 +281,10 @@ mod test {
             op: BinaryOperator::Sum,
             lhs: Some(Box::new(Expr::BinaryExpr {
                 op: BinaryOperator::Sum,
-                lhs: Some(Box::new(Expr::Int(10))),
-                rhs: Some(Box::new(Expr::Int(20))),
+                lhs: Some(Box::new(Expr::Int32(String::from("10")))),
+                rhs: Some(Box::new(Expr::Int32(String::from("20")))),
             })),
-            rhs: Some(Box::new(Expr::Int(30))),
+            rhs: Some(Box::new(Expr::Int32(String::from("30")))),
         };
 
         let parsed_expression = parser.parse_statement();
